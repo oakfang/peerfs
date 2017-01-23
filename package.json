@@ -1,0 +1,33 @@
+{
+  "name": "peerfs",
+  "version": "0.1.0",
+  "description": "Encrypted file transfers over webrtc, powered by Coven",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oakfang/peerfs.git"
+  },
+  "keywords": [
+    "webrtc",
+    "fs",
+    "p2p",
+    "peer",
+    "encrypted"
+  ],
+  "author": "Alon Niv",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/oakfang/peerfs/issues"
+  },
+  "homepage": "https://github.com/oakfang/peerfs#readme",
+  "dependencies": {
+    "co": "^4.6.0",
+    "coven": "^0.2.0",
+    "lzma-native": "^1.5.2",
+    "temp-fs": "^0.9.9",
+    "then-fs": "^2.0.0"
+  }
+}
