@@ -1,6 +1,6 @@
 {
   "name": "peerfs",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Encrypted file transfers over webrtc, powered by Coven",
   "main": "index.js",
   "scripts": {
@@ -24,10 +24,13 @@
   },
   "homepage": "https://github.com/oakfang/peerfs#readme",
   "dependencies": {
-    "co": "^4.6.0",
-    "coven": "^0.2.0",
-    "lzma-native": "^1.5.2",
+    "lzma-native": "^3.0.7",
     "temp-fs": "^0.9.9",
     "then-fs": "^2.0.0"
+  },
+  "devDependencies": {
+    "coven": "^0.3.3",
+    "wrtc": "^0.1.3",
+    "ws": "^5.1.1"
   }
 }

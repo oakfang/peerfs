@@ -41,37 +41,37 @@ const decriptAndDecompress = (input, output, key) => new Promise((resolve, rejec
   input$.on('error', reject);
 });
 
-const _setupPublisher = co.wrap(function* (publisher, filename, password) {
+const _setupPublisher = async (publisher, filename, password) => {
   const tag = getTag();
-  const tagHex = tag.toString('hex');
-  const key = yield getKey(tag, password);
-  const compressedFile = yield getTempFile();
-  yield compressAndEncript(filename, compressedFile.path, key);
-  const { size } = yield fs.stat(compressedFile.path);
+  const tagBase = tag.toString('base64');
+  const key = await getKey(tag, password);
+  const compressedFile = await getTempFile();
+  await compressAndEncript(filename, compressedFile.path, key);
+  const { size } = await fs.stat(compressedFile.path);
   const blockCount = Math.ceil(size / BLOCK_SIZE);
-  return { tag, tagHex, compressedFile, size, blockCount, key };
-});
+  return { tag, tagBase, compressedFile, size, blockCount, key };
+};
 
-const _setupSpreader = co.wrap(function* (spreader, filename, tagHex, password) {
-  const tag = Buffer.from(tagHex, 'hex');
-  const key = yield getKey(tag, password);
-  const compressedFile = yield getTempFile();
+const _setupSpreader = async (spreader, filename, tagBase, password) => {
+  const tag = Buffer.from(tagBase, 'base64');
+  const key = await getKey(tag, password);
+  const compressedFile = await getTempFile();
   const blockCount = 0;
-  return { tag, tagHex, compressedFile, blockCount, key };
-});
+  return { tag, tagBase, compressedFile, blockCount, key };
+};
 
-const _publishLoop = co.wrap(function* (publisher) {
-  const { _flags, peers, blockCount, compressedFile, tagHex, size } = publisher;
+const _publishLoop = async (publisher) => {
+  const { _flags, peers, blockCount, compressedFile, tagBase, size } = publisher;
   const block = Buffer.allocUnsafe(BLOCK_SIZE);
   publisher.emit('started');
   while (!_flags.stop) {
-    yield sleep();
+    await sleep();
     if (!peers.size) {
       continue;
     }
     for (let blockN = 0; blockN < blockCount; blockN++) {
       publisher.emit('processing', { blockNumber: blockN });
-      yield fs.read(compressedFile.fd, block, 0, BLOCK_SIZE, blockN * BLOCK_SIZE);
+      await fs.read(compressedFile.fd, block, 0, BLOCK_SIZE, blockN * BLOCK_SIZE);
       const blockData = block.toJSON();
       if (blockN + 1 === blockCount) {
         blockData.data.splice(size % BLOCK_SIZE);
@@ -82,29 +82,29 @@ const _publishLoop = co.wrap(function* (publisher) {
           peer.send(JSON.stringify({
             blockN,
             blockData,
-            tag: tagHex,
+            tag: tagBase,
             blockCount,
             isDone: true,
           }));
         }
       }
-      yield sleep();
+      await sleep();
     }
   }
-});
+};
 
-const _spreadLoop = co.wrap(function* (spreader) {
-  const { _flags, writtenBlocks, peers, compressedFile, tagHex } = spreader;
+const _spreadLoop = async (spreader) => {
+  const { _flags, writtenBlocks, peers, compressedFile, tagBase } = spreader;
   const block = Buffer.allocUnsafe(BLOCK_SIZE);
   spreader.emit('started');
   while (!_flags.stop) {
     if (!spreader.blockCount || !writtenBlocks.size || !peers.size) {
-      yield sleep();
+      await sleep();
       continue;
     }
     for (const blockN of writtenBlocks) {
       spreader.emit('processing', { blockNumber: blockN });
-      yield fs.read(compressedFile.fd, block, 0, BLOCK_SIZE, blockN * BLOCK_SIZE);
+      await fs.read(compressedFile.fd, block, 0, BLOCK_SIZE, blockN * BLOCK_SIZE);
       const blockData = block.toJSON();
       if (blockN + 1 === spreader.blockCount) {
         blockData.data.splice(spreader.lastBlockSize);
@@ -115,29 +115,29 @@ const _spreadLoop = co.wrap(function* (spreader) {
           peer.send(JSON.stringify({
             blockN,
             blockData,
-            tag: tagHex,
+            tag: tagBase,
             blockCount: spreader.blockCount,
             isDone: spreader.blockCount === writtenBlocks.size,
           }));
         }
       }
-      yield sleep();
+      await sleep();
     }
   }
-});
+};
 
 class Publisher extends EventEmitter {
-  constructor(filename, password, covenOpts) {
+  constructor(filename, password, coven) {
     super();
     this._flags = { stop: false };
-    this.coven = new Coven(covenOpts);
+    this.coven = coven;
     this.peers = new Map();
     this.__initPromise = this._init(filename, password);
     this.coven.on('peer', peer => {
       this.peers.set(peer, new Set());
       peer.on('data', sdata => {
         const data = JSON.parse(sdata);
-        if (data.tag === this.tagHex) {
+        if (data.tag === this.tagBase) {
           if (data.isDone) {
             this.peers.delete(peer);
           } else {
@@ -167,14 +167,14 @@ class Publisher extends EventEmitter {
 }
 
 class Spreader extends EventEmitter {
-  constructor(filename, tagHex, password, covenOpts) {
+  constructor(filename, password, tagBase, coven) {
     super();
     this.filename = filename;
     this._flags = { stop: false };
     this.writtenBlocks = new Set();
-    this.coven = new Coven(covenOpts);
+    this.coven = coven;
     this.peers = new Map();
-    this.__initPromise = this._init(filename, tagHex, password);
+    this.__initPromise = this._init(filename, tagBase, password);
     this.coven.on('peer', peer => {
       this.peers.set(peer, new Set());
       peer.on('close', () => this.peers.delete(peer));
@@ -185,14 +185,14 @@ class Spreader extends EventEmitter {
     });
   }
 
-  _init(filename, tagHex, password) {
-    return _setupSpreader(this, filename, tagHex, password)
+  _init(filename, tagBase, password) {
+    return _setupSpreader(this, filename, tagBase, password)
             .then(attrs => Object.assign(this, attrs))
             .then(() => this.emit('ready'));
   }
 
   _handlePeerData(peer, data) {
-    if (data.tag === this.tagHex) {
+    if (data.tag === this.tagBase) {
       this.blockCount = data.blockCount;
       const { blockN, blockData, isDone, empty } = data;
       if (isDone) {
@@ -221,7 +221,7 @@ class Spreader extends EventEmitter {
             if (this.writtenBlocks.size === this.blockCount) {
               return decriptAndDecompress(this.compressedFile.path, this.filename, this.key)
                       .then(this.coven.broadcast(JSON.stringify({
-                        tag: this.tagHex,
+                        tag: this.tagBase,
                         isDone: true,
                         empty: true,
                       })))
