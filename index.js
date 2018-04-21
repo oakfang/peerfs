@@ -3,7 +3,7 @@ const EventEmitter = require('events');
 const fs = require('then-fs');
 const co = require('co');
 const Coven = require('coven');
-const lzma = require('lzma-native');
+const { gzip } = require('compressing');
 const temp = require('temp-fs');
 
 const BLOCK_SIZE = 256;
@@ -22,7 +22,7 @@ const getTempFile = () => new Promise((resolve, reject) =>
   temp.open({ track: true }, (e, f) => e ? reject(e) : resolve(f)));
 
 const compressAndEncript = (input, output, key) => new Promise((resolve, reject) => {
-  const compressor = lzma.createCompressor();
+  const compressor = new gzip.FileStream();
   const cipher = crypto.createCipher('aes256', key);
   const input$ = fs.createReadStream(input);
   const output$ = fs.createWriteStream(output);
@@ -32,7 +32,7 @@ const compressAndEncript = (input, output, key) => new Promise((resolve, reject)
 });
 
 const decriptAndDecompress = (input, output, key) => new Promise((resolve, reject) => {
-  const decompressor = lzma.createDecompressor();
+  const decompressor = new gzip.UncompressStream();
   const decipher = crypto.createDecipher('aes256', key);
   const input$ = fs.createReadStream(input);
   const output$ = fs.createWriteStream(output);
