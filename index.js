@@ -129,7 +129,7 @@ const _spreadLoop = async (spreader) => {
 class Publisher extends EventEmitter {
   constructor(filename, password, coven) {
     super();
-    this._flags = { stop: false };
+    this._flags = { stop: true };
     this.coven = coven;
     this.peers = new Map();
     this.__initPromise = this._init(filename, password);
@@ -170,7 +170,7 @@ class Spreader extends EventEmitter {
   constructor(filename, password, tagBase, coven) {
     super();
     this.filename = filename;
-    this._flags = { stop: false };
+    this._flags = { stop: true };
     this.writtenBlocks = new Set();
     this.coven = coven;
     this.peers = new Map();
@@ -180,7 +180,9 @@ class Spreader extends EventEmitter {
       peer.on('close', () => this.peers.delete(peer));
       peer.on('data', sdata => {
         const data = JSON.parse(sdata);
-        this._handlePeerData(peer, data);
+        if (!this._flags.stop) {
+          this._handlePeerData(peer, data);
+        }
       });
     });
   }

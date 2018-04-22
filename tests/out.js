@@ -3,7 +3,9 @@ const wrtc = require("wrtc");
 const ws = require("ws");
 const { Publisher } = require("..");
 
-const coven = new Coven({ wrtc, ws, signaling: "wss://coven-broker.now.sh" });
+const DEV = "ws://localhost:4000";
+const PROD = "wss://coven-broker.now.sh";
+const coven = new Coven({ wrtc, ws, signaling: PROD });
 
 const [file, password] = process.argv.slice(2);
 
